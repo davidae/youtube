@@ -47,6 +47,9 @@ type Youtube struct {
 	contentLength     float64
 	totalWrittenBytes float64
 	downloadLevel     float64
+
+	title, author string
+	prData        PlayerResponseData
 }
 
 //NewYoutube :Initialize youtube package object
@@ -59,27 +62,38 @@ func NewYoutubeWithSocks5Proxy(debug bool, socks5Proxy string) *Youtube {
 }
 
 //DecodeURL : Decode youtube URL to retrieval video information.
-func (y *Youtube) DecodeURL(url string) error {
+func (y *Youtube) DecodeURL(url string) (string, string, error) {
 	err := y.findVideoID(url)
 	if err != nil {
-		return fmt.Errorf("findVideoID error=%s", err)
+		return "", "", fmt.Errorf("findVideoID error=%s", err)
 	}
 
 	err = y.getVideoInfo()
 	if err != nil {
-		return fmt.Errorf("getVideoInfo error=%s", err)
+		return "", "", fmt.Errorf("getVideoInfo error=%s", err)
 	}
 
 	err = y.parseVideoInfo()
 	if err != nil {
-		return fmt.Errorf("parse video info failed, err=%s", err)
+		return "", "", fmt.Errorf("parse video info failed, err=%s", err)
 	}
 
-	return nil
+	return y.author, y.title, nil
 }
 
 //StartDownload : Starting download video by arguments
 func (y *Youtube) StartDownload(outputDir, outputFile, quality string, itagNo int) error {
+	// Get video download link
+	streams, err := y.getStreams(y.prData, y.title, y.author)
+	if err != nil {
+		return err
+	}
+
+	y.StreamList = streams
+	if len(y.StreamList) == 0 {
+		return errors.New("no stream list found in the server's answer")
+	}
+
 	if len(y.StreamList) == 0 {
 		return ErrEmptyStreamList
 	}
@@ -214,8 +228,7 @@ func (y *Youtube) parseVideoInfo() error {
 
 	var prData PlayerResponseData
 	if err := json.Unmarshal([]byte(streamMap[0]), &prData); err != nil {
-		fmt.Println(err)
-		panic("Player response json data has changed.")
+		return fmt.Errorf("player response JSON data has changed: %w", err)
 	}
 
 	// Check if video is downloadable
@@ -225,18 +238,9 @@ func (y *Youtube) parseVideoInfo() error {
 
 	// Get video title and author.
 	title, author := getVideoTitleAuthor(answer)
-
-	// Get video download link
-	streams, err := y.getStreams(prData, title, author)
-	if err != nil {
-		return err
-	}
-
-	y.StreamList = streams
-	if len(y.StreamList) == 0 {
-		return errors.New("no stream list found in the server's answer")
-	}
-
+	y.title = title
+	y.author = author
+	y.prData = prData
 	return nil
 }
 
