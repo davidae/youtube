@@ -1,3 +1,8 @@
+# A Fork!
+This fork will return the author and title of the video before starting any long downlaoding procedure.
+Thanks for the code and source, kkdai!
+
+
 Download Youtube Video in Golang
 ==================
 
