@@ -6,7 +6,7 @@ import (
 	"log"
 	"os/user"
 
-	"github.com/kkdai/youtube"
+	"github.com/davidae/youtube"
 )
 
 //ExampleDownload : Example code for how to use this package for download video.

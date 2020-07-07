@@ -8,7 +8,7 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/kkdai/youtube"
+	"github.com/davidae/youtube"
 )
 
 const usageString string = `Usage: youtubedr [OPTION] [URL]
@@ -53,7 +53,7 @@ func main() {
 		log.Println("Using http without proxy.")
 	}
 	arg := flag.Arg(0)
-	if err := y.DecodeURL(arg); err != nil {
+	if _, _, err := y.DecodeURL(arg); err != nil {
 		fmt.Println("err:", err)
 		return
 	}
