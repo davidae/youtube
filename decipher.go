@@ -1,6 +1,7 @@
 package youtube
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -19,9 +20,9 @@ func (y *Youtube) parseDecipherOpsAndArgs() (operations []string, args []int, er
 	if y.VideoID == "" {
 		return nil, nil, fmt.Errorf("video id is empty , err=%s", err)
 	}
-	embedUrl := fmt.Sprintf("https://youtube.com/embed/%s?hl=en", y.VideoID)
+	embedURL := fmt.Sprintf("https://youtube.com/embed/%s?hl=en", y.VideoID)
 
-	embeddedPageResp, err := client.Get(embedUrl)
+	embeddedPageResp, err := client.Get(embedURL)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -67,22 +68,34 @@ func (y *Youtube) parseDecipherOpsAndArgs() (operations []string, args []int, er
 
 	// Ft=function(a){a=a.split("");Et.vw(a,2);Et.Zm(a,4);Et.Zm(a,46);Et.vw(a,2);Et.Zm(a,34);Et.Zm(a,59);Et.cn(a,42);return a.join("")} => get Ft
 	arr = decipherFuncNamePattern.FindStringSubmatch(basejs)
+	if len(arr) == 0 {
+		return nil, nil, errors.New("regexp pattern decipherFuncNamePattern failed to find a match")
+	}
+
 	funcName := arr[1]
 	decipherFuncBodyPattern := regexp.MustCompile(fmt.Sprintf(`[^h\.]%s=function\(\w+\)\{(.*?)\}`, funcName))
 
 	// eg: get a=a.split("");Et.vw(a,2);Et.Zm(a,4);Et.Zm(a,46);Et.vw(a,2);Et.Zm(a,34);Et.Zm(a,59);Et.cn(a,42);return a.join("")
 	arr = decipherFuncBodyPattern.FindStringSubmatch(basejs)
+	if len(arr) == 0 {
+		return nil, nil, errors.New("regexp pattern decipherFuncBodyPattern failed to find a match")
+	}
 	decipherFuncBody := arr[1]
 
 	// FuncName in Body => get Et
 	funcNameInBodyRegex := regexp.MustCompile(`(\w+).\w+\(\w+,\d+\);`)
 	arr = funcNameInBodyRegex.FindStringSubmatch(decipherFuncBody)
+	if len(arr) == 0 {
+		return nil, nil, errors.New("regexp pattern funcNameInBodyRegex failed to find a match")
+	}
 	funcNameInBody := arr[1]
 	decipherDefBodyRegex := regexp.MustCompile(fmt.Sprintf(`var\s+%s=\{(\w+:function\(\w+(,\w+)?\)\{(.*?)\}),?\};`, funcNameInBody))
 	re := regexp.MustCompile(`\r?\n`)
 	basejs = re.ReplaceAllString(basejs, "")
 	arr1 := decipherDefBodyRegex.FindStringSubmatch(basejs)
-
+	if len(arr1) == 0 {
+		return nil, nil, errors.New("regexp pattern decipherDefBodyRegex failed to find a match")
+	}
 	// eg:  vw:function(a,b){a.splice(0,b)},cn:function(a){a.reverse()},Zm:function(a,b){var c=a[0];a[0]=a[b%a.length];a[b%a.length]=c}
 	decipherDefBody := arr1[1]
 	// eq:  [ a=a.split("") , Et.vw(a,2) , Et.Zm(a,4) , Et.Zm(a,46) , Et.vw(a,2) , Et.Zm(a,34), Et.Zm(a,59) , Et.cn(a,42) , return a.join("") ]
